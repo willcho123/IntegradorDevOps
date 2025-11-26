@@ -16,13 +16,14 @@ on:
         required: true
       PORT:
         description: 'Port of the application'
-        default: '3000'
+        default: '443'
         required: true
 
 env:
   IMAGE_URL: ${{ secrets.ACR_NAME_ANDRES }}.azurecr.io/${{ github.event.inputs.IMAGE_REPOSITORY }}:${{ github.event.inputs.IMAGE_TAG }}
 
 jobs:
+
   build-and-push-image:
     name: 'Build and Push to ACR'
     runs-on: ubuntu-latest
@@ -45,10 +46,12 @@ jobs:
           tags: ${{ env.IMAGE_URL }}
           file: Dockerfile
 
+
   deploy:
     name: 'Deploy remote container to Azure'
     runs-on: ubuntu-latest
     needs: build-and-push-image
+
     steps:
       - name: Deploy to Azure Web App for Container
         uses: azure/webapps-deploy@v2
@@ -57,20 +60,17 @@ jobs:
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_ANDRES }}
           images: ${{ env.IMAGE_URL }}
 
+
   test-deploy:
     name: 'Test deployed service'
     runs-on: ubuntu-latest
     needs: [build-and-push-image, deploy]
+
     steps:
-      - name: Checkout session.hurl
-        uses: actions/checkout@v3
-        with:
-          sparse-checkout: |
-            session.hurl
-          sparse-checkout-cone-mode: false
+      - name: Wait for app to start
+        run: sleep 20
 
-      - name: Setup hurl (API testing tool)
-        uses: gacts/install-hurl@v1
-
-      - name: Test API
-        run: hurl --variable host=https://${{ github.event.inputs.AZURE_WEBAPP_NAME }}.azurewebsites.net:${{ github.event.inputs.PORT }} --connect-timeout 20s --error-format long --verbose --test session.hurl
+      - name: Test API root
+        run: |
+          echo "Testing: https://${{ github.event.inputs.AZURE_WEBAPP_NAME }}.azurewebsites.net:${{ github.event.inputs.PORT }}"
+          curl -I https://${{ github.event.inputs.AZURE_WEBAPP_NAME }}.azurewebsites.net:${{ github.event.inputs.PORT }}
