@@ -1,17 +1,16 @@
 import { ComputerService, DeviceService, MedicalDeviceService } from "@/core/service";
 import { Controller } from "./controller.elysia";
 
-
-import { opentelemetry } from '@elysiajs/opentelemetry'
-import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-node'
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-proto'
+import { opentelemetry } from "@elysiajs/opentelemetry";
+import { BatchSpanProcessor } from "@opentelemetry/sdk-trace-node";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-proto";
 
 import openapi from "@elysiajs/openapi";
 import Elysia from "elysia";
 
 export class ElysiaApiAdapter {
-    private controller: Controller
-    public app: Elysia
+    private controller: Controller;
+    public app: Elysia;
 
     constructor(
         computerService: ComputerService,
@@ -22,29 +21,50 @@ export class ElysiaApiAdapter {
             computerService,
             deviceService,
             medicalDeviceService
-        )
+        );
 
-        this.app = new Elysia()
-            .use (opentelemetry({
-		        spanProcessors: [
-			        new BatchSpanProcessor(
-				        new OTLPTraceExporter({
-					        url: 'https://api.axiom.co/v1/traces', 
-					        headers: {
-						        Authorization: `Bearer ${Bun.env.AXIOM_TOKEN}`, 
-						        'X-Axiom-Dataset': Bun.env.AXIOM_DATASET || "proyecto"
-					        } 
-				        })
-			        )
-		        ]
-	        }))
-            .use(openapi({}))
-            .use(this.controller.routes())
-            
+
+        const axiomToken = Bun.env.AXIOM_TOKEN;
+        const axiomDataset = Bun.env.AXIOM_DATASET;
+
+        const enableAxiom =
+            typeof axiomToken === "string" &&
+            axiomToken.length > 0 &&
+            typeof axiomDataset === "string" &&
+            axiomDataset.length > 0;
+
+        this.app = new Elysia();
+
+
+        if (enableAxiom) {
+            console.log("✔ Axiom habilitado: enviando métricas");
+
+            this.app.use(
+                opentelemetry({
+                    spanProcessors: [
+                        new BatchSpanProcessor(
+                            new OTLPTraceExporter({
+                                url: "https://api.axiom.co/v1/traces",
+                                headers: {
+                                    Authorization: `Bearer ${axiomToken}`,
+                                    "X-Axiom-Dataset": axiomDataset
+                                }
+                            })
+                        )
+                    ]
+                })
+            );
+        } else {
+            console.warn("⚠️ Axiom deshabilitado: faltan AXIOM_TOKEN y/o AXIOM_DATASET");
+        }
+
+ 
+        this.app.use(openapi({}));
+        this.app.use(this.controller.routes());
     }
+
     async run() {
-        this.app.listen(3000)
-        
-        console.log("El servidor esta corriendo en el puerto 3000")
+        this.app.listen(3000);
+        console.log("El servidor está corriendo en el puerto 3000");
     }
 }
