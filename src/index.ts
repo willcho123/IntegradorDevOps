@@ -33,7 +33,7 @@ const app = new ElysiaApiAdapter(
 );
 
 
-const PORT = process.env.PORT ? Number(process.env.PORT) : 443;
+const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 
 app.app.listen({
     port: PORT,
