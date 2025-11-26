@@ -24,5 +24,5 @@ const app = new ElysiaApiAdapter(
     deviceService,
     medicalDeviceService
 )
-
+const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 app.run()
